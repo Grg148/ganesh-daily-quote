@@ -48,3 +48,6 @@ jobs:
           git add docs/dailyquote.png
           git commit -m "Update dailyquote.png ($(date -u))" || echo "No changes"
           git push
+          - name: Save image to docs
+  run: cp dailyquote.png docs/
+
