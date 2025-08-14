@@ -1,0 +1,50 @@
+name: Build daily quote
+on:
+  schedule:
+    # Runs at 18:40 UTC daily (≈ 00:10 IST)
+    - cron: "40 18 * * *"
+  workflow_dispatch:
+
+jobs:
+  render:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install ImageMagick
+        run: sudo apt-get update && sudo apt-get install -y imagemagick fonts-dejavu-core
+
+      - name: Pick today’s quote
+        id: pick
+        shell: bash
+        run: |
+          DAY=$(date -u +%d)            # 01..31 in UTC
+          IDX=$((10#$DAY - 1))          # 0..30
+          QUOTE=$(sed -n "$((IDX+1))p" quotes.txt)
+          if [ -z "$QUOTE" ]; then QUOTE="Engineering tomorrow, today."; fi
+          echo "quote=$QUOTE" >> "$GITHUB_OUTPUT"
+
+      - name: Render PNG
+        env:
+          Q: ${{ steps.pick.outputs.quote }}
+        run: |
+          mkdir -p docs
+          WIDTH=900
+          HEIGHT=220
+          BG="#ffffff"
+          BAR="#FF6A00"
+          TEXT="#004AAD"
+          convert -size ${WIDTH}x${HEIGHT} xc:$BG \
+            -fill "$BAR" -draw "rectangle 0,0 8,$HEIGHT" \
+            -fill "$TEXT" -font DejaVu-Sans -pointsize 26 -interline-spacing 6 \
+            -gravity West -annotate +24+0 "$Q" \
+            docs/dailyquote.png
+
+      - name: Commit image
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add docs/dailyquote.png
+          git commit -m "Update dailyquote.png ($(date -u))" || echo "No changes"
+          git push
